@@ -17,6 +17,17 @@ impl<W: Write + Seek> PdfStreamWriter<W> {
         })
     }
 
+    pub fn write_object_with<F>(&mut self, writer: &mut F) -> Result<u32>
+    where
+        F: FnMut(&mut W) -> Result<()>,
+    {
+        let id = self._new_object()?;
+        writer(&mut self.sink)?;
+        write!(self.sink, "\n");
+        self._finish_object()?;
+        Ok(id)
+    }
+
     /// Stream arbitrary bytes from `reader` into the PDF output as an object.
     /// returns the id of the object
     ///
@@ -68,6 +79,18 @@ impl<W: Write + Seek> PdfStreamWriter<W> {
         Ok(object_id)
     }
 
+    pub fn write_object_with_reserved_id<F>(&mut self, id: u32, writer: &mut F) -> Result<()>
+    where
+        F: FnMut(&mut W) -> Result<()>,
+    {
+        let pos = self.sink.stream_position()?;
+        self.offsets.push(pos);
+        writeln!(self.sink, "{} 0 obj", id)?;
+        writer(&mut self.sink)?;
+        writeln!(self.sink, "\nendobj")?;
+        Ok(())
+    }
+
     fn _new_object(&mut self) -> Result<u32> {
         let id = self.next_obj_id;
         self.next_obj_id += 1;
@@ -76,8 +99,9 @@ impl<W: Write + Seek> PdfStreamWriter<W> {
         writeln!(self.sink, "{} 0 obj", id)?;
         Ok(id)
     }
+
     fn _finish_object(&mut self) -> Result<()> {
-        writeln!(self.sink, "endobj")?;
+        writeln!(self.sink, "\nendobj")?;
         Ok(())
     }
 }

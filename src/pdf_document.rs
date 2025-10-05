@@ -38,9 +38,8 @@ where
         writeln!(buf, "<< /Length {} >>", length)?;
         writeln!(buf, "stream")?;
         buf.extend_from_slice(content_bytes);
-        writeln!(buf, "\nendstream")?;
+        write!(buf, "\nendstream")?;
 
-        // Then call your low-level function
         let reader = Cursor::new(buf);
         let obj_id = self.writer.write_object(reader)?;
         Ok(obj_id)
@@ -52,34 +51,34 @@ where
         mut image_stream: R,
         w: u32,
         h: u32,
-        len: u64,
+        len: usize,
     ) -> Result<(u32, u32)> {
-        // For JPEG, stream directly without re-encoding
-        // Read just enough to get dimensions
-
-        // We need to know the length, so collect the data
-        let mut image_data = Vec::new();
-        image_stream.read_to_end(&mut image_data)?;
-
-        // Now write with known length
-        let img_dict = format!(
-            "<< /Type /XObject /Subtype /Image \
+        let mut writer = |obj: &mut W| -> Result<()> {
+            write!(
+                obj,
+                "<< /Type /XObject /Subtype /Image \
                /Width {} /Height {} \
                /ColorSpace /DeviceRGB \
                /BitsPerComponent 8 \
                /Filter /DCTDecode \
                /Length {} >>\nstream\n",
-            w,
-            h,
-            image_data.len()
-        );
+                w, h, len
+            );
 
-        let mut composed = Vec::with_capacity(final_dict.len() + image_data.len() + 20);
-        composed.extend_from_slice(final_dict.as_bytes());
-        composed.extend_from_slice(&image_data);
-        composed.extend_from_slice(b"\nendstream");
+            let mut buf = [0u8; 8192];
+            loop {
+                let n = image_stream.read(&mut buf)?;
+                if n == 0 {
+                    break; // EOF
+                }
+                obj.write_all(&buf[..n])?;
+            }
 
-        let image_obj_id = self.writer.write_object(Cursor::new(composed))?;
+            write!(obj, "\nendstream");
+            Ok(())
+        };
+
+        let image_obj_id = self.writer.write_object_with(&mut writer)?;
 
         // Create simple content stream
         let content = format!("q\n500 0 0 500 0 0 cm\n/Im{} Do\nQ\n", image_obj_id);
@@ -162,22 +161,21 @@ where
             acc
         });
 
-        let pages_dict = format!(
-            "<< /Type /Pages /Count {} /Kids [{}] >>",
-            self.page_ids.len(),
-            kids
-        );
+        let mut writer = |obj: &mut W| -> Result<()> {
+            write!(
+                obj,
+                "<< /Type /Pages /Count {} /Kids [{}] >>",
+                self.page_ids.len(),
+                kids
+            );
+            Ok(())
+        };
 
-        // Ensure the reserved `pages_id` is actually used
-        assert_eq!(
-            self.pages_id, 1,
-            "expected pages to be object 1 (just convention)"
-        );
-        let reader = Cursor::new(pages_dict.into_bytes());
-        let pages_id = self.writer.write_object(reader)?;
+        self.writer
+            .write_object_with_reserved_id(self.pages_id, &mut writer)?;
 
         // 2️⃣ Create the /Catalog object pointing to /Pages
-        let catalog_dict = format!("<< /Type /Catalog /Pages {} 0 R >>", pages_id);
+        let catalog_dict = format!("<< /Type /Catalog /Pages {} 0 R >>", self.pages_id);
         let reader = Cursor::new(catalog_dict.into_bytes());
         let catalog_id = self.writer.write_object(reader)?;
 
