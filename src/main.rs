@@ -245,7 +245,7 @@ fn build_rel_map<R: Read + Seek>(archive: &mut ZipArchive<R>) -> Result<HashMap<
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
-    let (out_path, path) = if args[1] == "-o" && args.len() > 3 {
+    let (out_path, path) = if args.len() > 3 && args[1] == "-o" {
         (args[2].clone(), args[3].clone())
     } else {
         panic!("Invalid args, should be formatted in './program -o [output_path] [input_path]'");
