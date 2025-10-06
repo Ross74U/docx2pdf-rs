@@ -23,7 +23,7 @@ impl<W: Write + Seek> PdfStreamWriter<W> {
     {
         let id = self._new_object()?;
         writer(&mut self.sink)?;
-        write!(self.sink, "\n");
+        write!(self.sink, "\n")?;
         self._finish_object()?;
         Ok(id)
     }

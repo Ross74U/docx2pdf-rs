@@ -63,7 +63,7 @@ where
                /Filter /DCTDecode \
                /Length {} >>\nstream\n",
                 w, h, len
-            );
+            )?;
 
             let mut buf = [0u8; 8192];
             loop {
@@ -74,7 +74,7 @@ where
                 obj.write_all(&buf[..n])?;
             }
 
-            write!(obj, "\nendstream");
+            write!(obj, "\nendstream")?;
             Ok(())
         };
 
@@ -167,7 +167,7 @@ where
                 "<< /Type /Pages /Count {} /Kids [{}] >>",
                 self.page_ids.len(),
                 kids
-            );
+            )?;
             Ok(())
         };
 
@@ -181,23 +181,4 @@ where
 
         self.writer.finish(catalog_id)
     }
-}
-
-fn parse_jpeg_size(buf: &[u8]) -> Option<(u32, u32)> {
-    let mut i = 2;
-    while i + 9 < buf.len() {
-        if buf[i] != 0xFF {
-            i += 1;
-            continue;
-        }
-        let marker = buf[i + 1];
-        if (0xC0..=0xC3).contains(&marker) || (0xC5..=0xC7).contains(&marker) {
-            let h = u16::from_be_bytes([buf[i + 5], buf[i + 6]]) as u32;
-            let w = u16::from_be_bytes([buf[i + 7], buf[i + 8]]) as u32;
-            return Some((w, h));
-        }
-        let segment_len = u16::from_be_bytes([buf[i + 2], buf[i + 3]]) as usize;
-        i += 2 + segment_len;
-    }
-    None
 }

@@ -3,7 +3,7 @@ use image::GenericImageView;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufReader, Read, Seek};
+use std::io::{BufReader, Read};
 use std::path::PathBuf;
 use tempfile::TempDir;
 use turbojpeg::{Compressor, Image, PixelFormat};
@@ -93,7 +93,6 @@ impl ImagePreprocessor {
         zip_file.read_to_end(&mut data)?;
         let len = data.len();
 
-        let start = std::time::Instant::now();
         // Decode it using the `image` crate
         let img = image::load_from_memory(&data)?;
 

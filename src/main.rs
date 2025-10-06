@@ -1,10 +1,8 @@
-mod display;
 mod image_preprocessor;
 mod pdf_document;
 mod pdf_stream_writer;
 
 use anyhow::Result;
-use display::DisplayMap;
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use std::collections::{HashMap, HashSet};
@@ -246,16 +244,20 @@ fn build_rel_map<R: Read + Seek>(archive: &mut ZipArchive<R>) -> Result<HashMap<
 }
 
 fn main() -> Result<()> {
-    let path = "test_files/large_business_plan.docx";
-    let out_path = "test_files/out.pdf";
-    let file = File::open(path)?;
+    let args: Vec<String> = std::env::args().collect();
+    let (out_path, path) = if args[1] == "-o" && args.len() > 3 {
+        (args[2].clone(), args[3].clone())
+    } else {
+        panic!("Invalid args, should be formatted in './program -o [output_path] [input_path]'");
+    };
 
+    let file = File::open(&path)?;
     let mut archive = ZipArchive::new(BufReader::new(file))?;
 
     let start = Instant::now();
     let rel_map = build_rel_map(&mut archive)?;
 
-    let image_preprocessor = ImagePreprocessor::preprocess_images(path)?;
+    let image_preprocessor = ImagePreprocessor::preprocess_images(&path)?;
     let image_map = image_preprocessor.image_map;
 
     let media_lookup = |rid: &str| {
