@@ -1,4 +1,4 @@
- docx2pdf_rs
+# docx2pdf_rs
 
 A command line utility to quickly convert large DOCX files to unformatted, minimal pdf files for LLM API consumption.
 
